@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 
 	_ "net/http/pprof"
 
@@ -41,6 +42,9 @@ func init() {
 	if pprofEnabled {
 		flag.StringVar(&pprofAddr, "P", ":6060", "profiling HTTP server address")
 	}
+	if isTestBinary() {
+		return
+	}
 	flag.Parse()
 
 	if printVersion {
@@ -59,6 +63,11 @@ func init() {
 	if flag.NFlag() == 0 {
 		uiEnabled = true
 	}
+}
+
+func isTestBinary() bool {
+	name := os.Args[0]
+	return strings.HasSuffix(name, ".test") || strings.HasSuffix(name, ".test.exe")
 }
 
 func main() {

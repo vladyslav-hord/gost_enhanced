@@ -27,6 +27,7 @@ _testmain.go
 *.swo
 
 *.exe
+!cmd/gost/assets/sing-box-windows-amd64.exe
 *.test
 
 *.bak

@@ -120,7 +120,27 @@ func runProfileUI() error {
 			} else {
 				fmt.Fprintln(os.Stdout, "System proxy disabled.")
 			}
-		case "11", "help", "?":
+		case "11", "vpn", "start-vpn":
+			if err := startVPNModeForSelectedProfile(reader, store); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+		case "12", "stop-vpn":
+			if err := stopVPNMode(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			} else {
+				fmt.Fprintln(os.Stdout, "VPN mode stopped.")
+			}
+		case "13", "vpn-status", "status":
+			if err := printVPNStatus(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+		case "14", "check-vpn":
+			if err := checkVPNBackend(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+		case "15", "leaks", "leak-test":
+			printLeakChecklist()
+		case "16", "help", "?":
 			flag.PrintDefaults()
 			fmt.Fprintln(os.Stdout)
 			fmt.Fprintln(os.Stdout, "Profile node strings use the same syntax as -L and -F.")
@@ -164,8 +184,25 @@ func printProfileMenu(store *profileStore) {
 	fmt.Fprintln(os.Stdout, "8) delete profile")
 	fmt.Fprintln(os.Stdout, "9) enable system proxy and start selected profile")
 	fmt.Fprintln(os.Stdout, "10) disable system proxy")
-	fmt.Fprintln(os.Stdout, "11) help")
+	fmt.Fprintln(os.Stdout, "11) start VPN mode")
+	fmt.Fprintln(os.Stdout, "12) stop VPN mode")
+	fmt.Fprintln(os.Stdout, "13) VPN status")
+	fmt.Fprintln(os.Stdout, "14) check VPN backend")
+	fmt.Fprintln(os.Stdout, "15) leak test checklist")
+	fmt.Fprintln(os.Stdout, "16) help")
 	fmt.Fprintln(os.Stdout, "q) quit")
+}
+
+func printLeakChecklist() {
+	fmt.Fprintln(os.Stdout, "Leak test checklist:")
+	fmt.Fprintln(os.Stdout, "1. https://browserleaks.com/ip")
+	fmt.Fprintln(os.Stdout, "2. https://browserleaks.com/dns")
+	fmt.Fprintln(os.Stdout, "3. https://browserleaks.com/webrtc")
+	fmt.Fprintln(os.Stdout, "4. https://ipleak.net")
+	fmt.Fprintln(os.Stdout, "PowerShell checks:")
+	fmt.Fprintln(os.Stdout, "  curl.exe https://api.ipify.org")
+	fmt.Fprintln(os.Stdout, "  nslookup google.com")
+	fmt.Fprintln(os.Stdout, "Expected: browser public IP is the proxy IP, DNS is not your ISP/router, WebRTC does not expose your real public IP.")
 }
 
 func printProfiles(store *profileStore) {
@@ -185,8 +222,8 @@ func printProfiles(store *profileStore) {
 			marker,
 			i+1,
 			truncate(p.Name, 20),
-			truncate(strings.Join(p.Config.route.ServeNodes, ","), 30),
-			truncate(strings.Join(p.Config.route.ChainNodes, ","), 30),
+			truncate(displayNodeList(p.Config.route.ServeNodes), 30),
+			truncate(displayNodeList(p.Config.route.ChainNodes), 30),
 			formatCheck(p.LastCheck),
 		)
 	}
@@ -385,6 +422,9 @@ func startSelectedProfile(reader *bufio.Reader, store *profileStore) error {
 	}
 
 	baseCfg = cloneBaseConfig(store.Profiles[idx].Config)
+	if err := validateConfigForProfile(baseCfg); err != nil {
+		return err
+	}
 	fmt.Fprintf(os.Stdout, "Starting profile %s...\n", store.Profiles[idx].Name)
 	return runServer()
 }
@@ -424,6 +464,9 @@ func startSelectedProfileWithSystemProxy(reader *bufio.Reader, store *profileSto
 	}
 
 	baseCfg = cloneBaseConfig(store.Profiles[idx].Config)
+	if err := validateConfigForProfile(baseCfg); err != nil {
+		return err
+	}
 	if err := setupServer(); err != nil {
 		return err
 	}
@@ -648,6 +691,9 @@ func loadProfiles(path string) (*profileStore, error) {
 	if err := json.Unmarshal(data, store); err != nil {
 		return nil, err
 	}
+	if err := unprotectProfileStore(store); err != nil {
+		return nil, err
+	}
 	if store.Version == 0 {
 		store.Version = profileStoreVersion
 	}
@@ -655,11 +701,15 @@ func loadProfiles(path string) (*profileStore, error) {
 }
 
 func saveProfiles(path string, store *profileStore) error {
-	store.Version = profileStoreVersion
+	diskStore, err := protectProfileStore(store)
+	if err != nil {
+		return err
+	}
+	diskStore.Version = profileStoreVersion
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(store, "", "  ")
+	data, err := json.MarshalIndent(diskStore, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -730,7 +780,7 @@ func printNodeList(label string, nodes stringList) {
 		return
 	}
 	for _, node := range nodes {
-		fmt.Fprintln(os.Stdout, "  "+node)
+		fmt.Fprintln(os.Stdout, "  "+maskNodeSecret(node))
 	}
 }
 
