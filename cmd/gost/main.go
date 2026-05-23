@@ -20,6 +20,7 @@ var (
 	baseCfg       = &baseConfig{}
 	pprofAddr     string
 	pprofEnabled  = os.Getenv("PROFILING") != ""
+	uiEnabled     bool
 )
 
 func init() {
@@ -35,6 +36,7 @@ func init() {
 	flag.StringVar(&configureFile, "C", "", "configure file")
 	flag.StringVar(&baseCfg.route.Interface, "I", "", "Interface to bind")
 	flag.BoolVar(&baseCfg.Debug, "D", false, "enable debug log")
+	flag.BoolVar(&uiEnabled, "UI", false, "open interactive profile UI")
 	flag.BoolVar(&printVersion, "V", false, "print version")
 	if pprofEnabled {
 		flag.StringVar(&pprofAddr, "P", ":6060", "profiling HTTP server address")
@@ -55,12 +57,34 @@ func init() {
 		}
 	}
 	if flag.NFlag() == 0 {
-		flag.PrintDefaults()
-		os.Exit(0)
+		uiEnabled = true
 	}
 }
 
 func main() {
+	if uiEnabled {
+		if err := runProfileUI(); err != nil {
+			log.Log(err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if err := runServer(); err != nil {
+		log.Log(err)
+		os.Exit(1)
+	}
+}
+
+func runServer() error {
+	if err := setupServer(); err != nil {
+		return err
+	}
+
+	select {}
+}
+
+func setupServer() error {
 	if pprofEnabled {
 		go func() {
 			log.Log("profiling server on", pprofAddr)
@@ -74,8 +98,7 @@ func main() {
 		// generate random self-signed certificate.
 		cert, err := gost.GenCertificate()
 		if err != nil {
-			log.Log(err)
-			os.Exit(1)
+			return err
 		}
 		tlsConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
@@ -87,11 +110,10 @@ func main() {
 	gost.DefaultTLSConfig = tlsConfig
 
 	if err := start(); err != nil {
-		log.Log(err)
-		os.Exit(1)
+		return err
 	}
 
-	select {}
+	return nil
 }
 
 func start() error {
