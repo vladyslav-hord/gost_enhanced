@@ -6,7 +6,7 @@ gost - GO Simple Tunnel
 [![GoDoc](https://godoc.org/github.com/ginuerzh/gost?status.svg)](https://godoc.org/github.com/ginuerzh/gost)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ginuerzh/gost)](https://goreportcard.com/report/github.com/ginuerzh/gost)
 [![codecov](https://codecov.io/gh/ginuerzh/gost/branch/master/graphs/badge.svg)](https://codecov.io/gh/ginuerzh/gost/branch/master)
-[![GitHub release](https://img.shields.io/github/release/ginuerzh/gost.svg)](https://github.com/ginuerzh/gost/releases/latest)
+[![GitHub release](https://img.shields.io/github/release/vladyslav-hord/gost.svg)](https://github.com/vladyslav-hord/gost/releases/latest)
 [![Docker](https://img.shields.io/docker/pulls/ginuerzh/gost.svg)](https://hub.docker.com/r/ginuerzh/gost/)
 [![gost](https://snapcraft.io/gost/badge.svg)](https://snapcraft.io/gost)
  
@@ -36,6 +36,58 @@ Telegram group: <https://t.me/gogost>
 Google group: <https://groups.google.com/d/forum/go-gost>
 
 GOST v3: <https://gost.run>
+
+Windows VPN quick install
+------
+
+Download the latest Windows build from this fork:
+
+<https://github.com/vladyslav-hord/gost/releases/latest>
+
+Use the asset named:
+
+```plain
+gost-windows-amd64.exe
+```
+
+Rename it to `gost.exe` and place it in a directory that is in `PATH`, for example:
+
+```plain
+C:\tools\gost\gost.exe
+```
+
+No separate `sing-box` download is required for the Windows amd64 release. The VPN backend is embedded in `gost.exe` and is extracted automatically on first VPN use.
+
+Run PowerShell as Administrator and start the UI:
+
+```powershell
+gost
+```
+
+Create a profile:
+
+* `Local service address`: optional for VPN mode; use `http://127.0.0.1:8080` if you also want system proxy mode.
+* `Upstream proxy`: your provider proxy, for example `socks5://user:pass@proxy.example.com:1080`.
+
+Then use:
+
+```plain
+11) start VPN mode
+```
+
+Check that the backend is available:
+
+```plain
+14) check VPN backend
+```
+
+Stop VPN mode:
+
+```plain
+12) stop VPN mode
+```
+
+After starting VPN mode, verify IP, DNS and WebRTC with the leak checks listed below.
 
 Fork additions
 ------
@@ -150,17 +202,27 @@ Expected result: public IP is the proxy/VPN IP, DNS servers are not the local IS
 Installation
 ------
 
-#### Binary files
+#### This fork
 
-<https://github.com/ginuerzh/gost/releases>
+Windows VPN/UI builds are published here:
+
+<https://github.com/vladyslav-hord/gost/releases/latest>
+
+The Windows amd64 release includes the embedded `sing-box` backend used by VPN mode.
 
 #### From source
 
 ```bash
-git clone https://github.com/ginuerzh/gost.git
-cd gost/cmd/gost
-go build
+git clone https://github.com/vladyslav-hord/gost.git
+cd gost
+go build ./cmd/gost
 ```
+
+The embedded Windows VPN backend is included only when the repository contains `cmd/gost/assets/sing-box-windows-amd64.exe`.
+
+#### Original upstream install methods
+
+The Docker, Homebrew and Snap commands below install the original upstream GOST package. They do not install this fork's interactive UI, profile store, Windows system proxy toggle or embedded VPN mode unless those package sources are updated separately.
 
 #### Docker
 
